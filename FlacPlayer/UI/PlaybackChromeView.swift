@@ -75,11 +75,11 @@ final class PlaybackChromeView: UIView {
         super.layoutSubviews()
         let width = bounds.width
         if trackVisible {
-            titleLabel.frame = CGRect(x: 0, y: 0, width: width, height: 28)
-            detailLabel.frame = CGRect(x: 0, y: 28, width: width, height: 18)
-            scrubber.frame = CGRect(x: 0, y: 52, width: width, height: 28)
-            elapsedLabel.frame = CGRect(x: 0, y: 78, width: 64, height: 16)
-            durationLabel.frame = CGRect(x: width - 64, y: 78, width: 64, height: 16)
+            titleLabel.frame = CGRect(x: 0, y: 0, width: width, height: 26)
+            detailLabel.frame = CGRect(x: 0, y: 26, width: width, height: 16)
+            scrubber.frame = CGRect(x: 0, y: 44, width: width, height: 26)
+            elapsedLabel.frame = CGRect(x: 0, y: 70, width: 64, height: 16)
+            durationLabel.frame = CGRect(x: width - 64, y: 70, width: 64, height: 16)
         } else {
             emptyTitle.frame = CGRect(x: 0, y: 0, width: width, height: 24)
             emptyDetail.frame = CGRect(x: 8, y: 26, width: width - 16, height: 40)
@@ -146,7 +146,7 @@ final class VolumeHUD: UIView {
         alpha = 0
         track.backgroundColor = UIColor.white.withAlphaComponent(0.12)
         track.layer.cornerRadius = 3
-        fill.backgroundColor = Theme.amber
+        fill.backgroundColor = Theme.teal
         fill.layer.cornerRadius = 3
         addSubview(track)
         addSubview(fill)

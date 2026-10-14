@@ -93,16 +93,16 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             grain.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             wheel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            wheel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -6),
-            wheel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.64),
+            wheel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            wheel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.62),
             wheel.heightAnchor.constraint(equalTo: wheel.widthAnchor),
 
             chrome.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 36),
             chrome.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -36),
-            chrome.bottomAnchor.constraint(equalTo: wheel.topAnchor, constant: -8),
-            chrome.heightAnchor.constraint(equalToConstant: 108),
+            chrome.bottomAnchor.constraint(equalTo: wheel.topAnchor, constant: -6),
+            chrome.heightAnchor.constraint(equalToConstant: 92),
 
-            stage.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            stage.topAnchor.constraint(equalTo: view.topAnchor),
             stage.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             stage.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stage.bottomAnchor.constraint(equalTo: chrome.topAnchor, constant: -4),

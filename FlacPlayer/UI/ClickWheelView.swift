@@ -22,7 +22,6 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
     private let playButton = WheelKey(type: .custom)
     private let centerButton = CenterCap()
     private let haptics = Haptics()
-    private let symbolConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
     private let momentumProxy = WheelMomentumProxy()
     private var momentumLink: CADisplayLink?
     private var lastAngle: CGFloat = 0
@@ -50,8 +49,6 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         configure(previousButton, accessibility: "Previous")
         configure(nextButton, accessibility: "Next")
         configure(playButton, accessibility: "Library")
-        previousButton.setImage(UIImage(systemName: "backward.end.fill", withConfiguration: symbolConfig), for: .normal)
-        nextButton.setImage(UIImage(systemName: "forward.end.fill", withConfiguration: symbolConfig), for: .normal)
         setBrowsing(false)
 
         menuButton.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
@@ -113,6 +110,14 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         menuButton.setImage(nil, for: .normal)
         playButton.setImage(nil, for: .normal)
         playButton.setAttributedTitle(NSAttributedString(string: "LIBRARY", attributes: attributes), for: .normal)
+        let skipAttributes: [NSAttributedString.Key: Any] = [
+            .font: Theme.sans(18, .semibold),
+            .foregroundColor: Theme.ink.withAlphaComponent(0.88)
+        ]
+        previousButton.setImage(nil, for: .normal)
+        nextButton.setImage(nil, for: .normal)
+        previousButton.setAttributedTitle(NSAttributedString(string: "◀◀", attributes: skipAttributes), for: .normal)
+        nextButton.setAttributedTitle(NSAttributedString(string: "▶▶", attributes: skipAttributes), for: .normal)
         if !browsing { stopMomentum() }
         setNeedsDisplay()
     }
@@ -136,19 +141,11 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
     override func draw(_ rect: CGRect) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let circle = bounds.insetBy(dx: 1, dy: 1)
-        ctx.setFillColor(UIColor(white: 0.16, alpha: 1).cgColor)
+        ctx.setFillColor(UIColor(red: 43.0 / 255, green: 43.0 / 255, blue: 46.0 / 255, alpha: 1).cgColor)
         ctx.fillEllipse(in: circle)
-
-        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.08).cgColor)
+        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.06).cgColor)
         ctx.setLineWidth(1)
         ctx.strokeEllipse(in: bounds.insetBy(dx: 1.5, dy: 1.5))
-
-        let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let ring = bounds.width * (browsing ? 0.31 : 0.27)
-        ctx.setFillColor(UIColor(white: 0.09, alpha: 1).cgColor)
-        ctx.fillEllipse(in: CGRect(x: center.x - ring, y: center.y - ring, width: ring * 2, height: ring * 2))
-        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.05).cgColor)
-        ctx.strokeEllipse(in: CGRect(x: center.x - ring, y: center.y - ring, width: ring * 2, height: ring * 2))
     }
 
     override func layoutSubviews() {
@@ -353,7 +350,7 @@ private final class CenterCap: UIControl {
         } else {
             symbol.image = nil
             symbol.isHidden = true
-            backgroundColor = UIColor(white: 0.13, alpha: 1)
+            backgroundColor = UIColor(red: 26.0 / 255, green: 26.0 / 255, blue: 28.0 / 255, alpha: 1)
         }
     }
 

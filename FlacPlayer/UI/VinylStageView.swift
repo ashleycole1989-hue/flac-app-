@@ -110,9 +110,9 @@ final class VinylStageView: UIView {
         super.layoutSubviews()
         guard bounds.width > 20, bounds.height > 20 else { return }
 
-        let cardWidth = min(bounds.width * 0.62, bounds.height * 0.62, 260)
+        let cardWidth = min(bounds.width * 0.60, max(140, bounds.height - 4), 250)
         let cardHeight = cardWidth
-        let cardY = min(max(18, bounds.height - cardHeight - 6), bounds.height * 0.30)
+        let cardY = bounds.height - cardHeight
         let sleeveFrame = CGRect(
             x: (bounds.width - cardWidth) / 2,
             y: cardY,
@@ -124,11 +124,10 @@ final class VinylStageView: UIView {
         sleeve.frame = sleeveContainer.bounds
         sleeveContainer.layer.shadowPath = UIBezierPath(roundedRect: sleeveContainer.bounds, cornerRadius: 2).cgPath
 
-        let vinylSide = cardWidth * 0.98
+        let vinylSide = cardWidth * 0.966
         let radius = vinylSide / 2
-        let tucked = sleeveFrame.minY + radius
-        var extended = sleeveFrame.minY + radius * 0.18
-        extended = min(tucked, max(extended, radius + 2))
+        let tucked = sleeveFrame.midY
+        let extended = min(tucked, radius + 6)
         let centerY = tucked + (extended - tucked) * reveal
 
         vinylHolder.bounds = CGRect(x: 0, y: 0, width: vinylSide, height: vinylSide)
