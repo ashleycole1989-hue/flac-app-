@@ -28,7 +28,7 @@ enum MetadataReader {
         var artist = ""
         var albumArtist = ""
         var album = ""
-        var year: Int?
+        var releaseYear: Int?
         var trackNumber = 0
         var discNumber = 1
         var artwork: UIImage?
@@ -56,30 +56,30 @@ enum MetadataReader {
             let identifier = item.identifier?.rawValue.lowercased() ?? ""
             let value = cleaned(item.stringValue)
 
-            if item.commonKey == AVMetadataItem.commonKeyTitle || key == "title" || identifier.contains("title") {
+            if item.commonKey == .commonKeyTitle || key == "title" || identifier.contains("title") {
                 if title.isEmpty, let value, !value.isEmpty { title = value }
-            } else if item.commonKey == AVMetadataItem.commonKeyArtist || key == "artist" || identifier.hasSuffix("/artist") {
+            } else if item.commonKey == .commonKeyArtist || key == "artist" || identifier.hasSuffix("/artist") {
                 if artist.isEmpty, let value, !value.isEmpty { artist = value }
             } else if key.contains("albumartist") || key == "aart" || identifier.contains("albumartist") {
                 if let value, !value.isEmpty { albumArtist = value }
-            } else if item.commonKey == AVMetadataItem.commonKeyAlbumName || key == "album" || identifier.contains("album") {
+            } else if item.commonKey == .commonKeyAlbumName || key == "album" || identifier.contains("album") {
                 if album.isEmpty, let value, !value.isEmpty, !key.contains("artist") { album = value }
             } else if key.contains("track") || key == "trck" || identifier.contains("tracknumber") {
                 if trackNumber == 0, let value, let number = leadingInt(value) { trackNumber = number }
             } else if key.contains("disc") || key == "tpos" || identifier.contains("discnumber") {
                 if let value, let number = leadingInt(value), number > 0 { discNumber = number }
-            } else if item.commonKey == AVMetadataItem.commonKeyCreationDate
+            } else if item.commonKey == .commonKeyCreationDate
                         || key.contains("year") || key.contains("date") || key == "tyer" || key == "tdrc" {
-                if year == nil {
-                    if let parsed = year(from: item) {
-                        year = parsed
-                    } else if let value, let parsed = year(from: value) {
-                        year = parsed
+                if releaseYear == nil {
+                    if let parsed = yearNumber(from: item) {
+                        releaseYear = parsed
+                    } else if let value, let parsed = yearNumber(from: value) {
+                        releaseYear = parsed
                     }
                 }
             }
 
-            if artwork == nil, item.commonKey == AVMetadataItem.commonKeyArtwork || key.contains("artwork") || identifier.contains("picture") {
+            if artwork == nil, item.commonKey == .commonKeyArtwork || key.contains("artwork") || identifier.contains("picture") {
                 artwork = image(from: item)
             }
         }
@@ -96,7 +96,7 @@ enum MetadataReader {
             artist: artist,
             albumArtist: albumArtist,
             album: album,
-            year: year,
+            year: releaseYear,
             trackNumber: trackNumber,
             discNumber: discNumber,
             duration: duration,
@@ -127,18 +127,18 @@ enum MetadataReader {
         return Int(digits)
     }
 
-    private static func year(from item: AVMetadataItem) -> Int? {
+    private static func yearNumber(from item: AVMetadataItem) -> Int? {
         if let date = item.dateValue {
             let year = Calendar.current.component(.year, from: date)
             if (1900...2100).contains(year) { return year }
         }
         if let string = item.stringValue {
-            return year(from: string)
+            return yearNumber(from: string)
         }
         return nil
     }
 
-    private static func year(from string: String) -> Int? {
+    private static func yearNumber(from string: String) -> Int? {
         let digits = string.prefix { $0.isNumber || $0 == " " }
         let trimmed = digits.trimmingCharacters(in: .whitespaces)
         guard trimmed.count >= 4, let year = Int(trimmed.prefix(4)), (1900...2100).contains(year) else {
