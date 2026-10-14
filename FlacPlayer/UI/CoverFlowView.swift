@@ -5,12 +5,11 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
 
     private let layout = CoverFlowLayout()
     private let collectionView: UICollectionView
-    private let titleLabel = UILabel()
-    private let detailLabel = UILabel()
     private let emptyLabel = UILabel()
+    private let emptyDetail = UILabel()
     private let addButton = UIButton(type: .custom)
+    private let folderButton = UIButton(type: .custom)
     private var albums: [Album] = []
-    private var lastCaptionIndex = -1
     private var appliedCollectionSize: CGSize = .zero
 
     var onAdd: (() -> Void)?
@@ -32,31 +31,30 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
         collectionView.alwaysBounceHorizontal = true
         addSubview(collectionView)
 
-        titleLabel.font = Theme.serif(22, .semibold)
-        titleLabel.textColor = Theme.ink
-        titleLabel.textAlignment = .center
-        titleLabel.adjustsFontSizeToFitWidth = true
-        titleLabel.minimumScaleFactor = 0.7
-        detailLabel.font = Theme.sans(12, .medium)
-        detailLabel.textColor = Theme.muted
-        detailLabel.textAlignment = .center
-        emptyLabel.font = Theme.serif(20, .medium)
+        emptyLabel.font = Theme.sans(20, .regular)
         emptyLabel.textColor = Theme.ink
         emptyLabel.textAlignment = .center
         emptyLabel.numberOfLines = 0
-        emptyLabel.text = "No albums yet"
-        addButton.setTitle("Add Music", for: .normal)
-        addButton.setTitleColor(Theme.amber, for: .normal)
+        emptyLabel.text = "Choose a music folder"
+        emptyDetail.font = Theme.sans(13, .regular)
+        emptyDetail.textColor = Theme.muted
+        emptyDetail.textAlignment = .center
+        emptyDetail.numberOfLines = 0
+        emptyDetail.text = "Songs in that folder and every folder inside it are added with their cover art."
+        addButton.setTitle("Choose Folder", for: .normal)
+        addButton.setTitleColor(Theme.ink, for: .normal)
         addButton.titleLabel?.font = Theme.sans(15, .semibold)
-        addButton.backgroundColor = UIColor(white: 0.14, alpha: 1)
+        addButton.backgroundColor = UIColor(white: 0.16, alpha: 1)
         addButton.layer.cornerRadius = 18
-        addButton.layer.borderWidth = 1
-        addButton.layer.borderColor = Theme.amber.withAlphaComponent(0.35).cgColor
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
-        addSubview(titleLabel)
-        addSubview(detailLabel)
+        folderButton.setTitle("Folder", for: .normal)
+        folderButton.setTitleColor(Theme.muted, for: .normal)
+        folderButton.titleLabel?.font = Theme.sans(12, .semibold)
+        folderButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
         addSubview(emptyLabel)
+        addSubview(emptyDetail)
         addSubview(addButton)
+        addSubview(folderButton)
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
         collectionView.addGestureRecognizer(tap)
@@ -72,12 +70,11 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let captionHeight: CGFloat = 58
-        titleLabel.frame = CGRect(x: 24, y: bounds.height - captionHeight, width: bounds.width - 48, height: 28)
-        detailLabel.frame = CGRect(x: 24, y: titleLabel.frame.maxY, width: bounds.width - 48, height: 20)
-        collectionView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: titleLabel.frame.minY - 6)
-        emptyLabel.frame = CGRect(x: 32, y: bounds.midY - 70, width: bounds.width - 64, height: 60)
-        addButton.frame = CGRect(x: (bounds.width - 160) / 2, y: emptyLabel.frame.maxY + 8, width: 160, height: 44)
+        collectionView.frame = bounds
+        folderButton.frame = CGRect(x: bounds.width - 84, y: 4, width: 72, height: 32)
+        emptyLabel.frame = CGRect(x: 32, y: bounds.midY - 78, width: bounds.width - 64, height: 28)
+        emptyDetail.frame = CGRect(x: 36, y: emptyLabel.frame.maxY + 6, width: bounds.width - 72, height: 52)
+        addButton.frame = CGRect(x: (bounds.width - 168) / 2, y: emptyDetail.frame.maxY + 12, width: 168, height: 44)
         if collectionView.bounds.size != appliedCollectionSize, collectionView.bounds.width > 0 {
             appliedCollectionSize = collectionView.bounds.size
             layout.invalidateLayout()
@@ -88,17 +85,17 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
         let previous = centeredAlbum()?.id
         self.albums = albums
         collectionView.reloadData()
-        emptyLabel.isHidden = !albums.isEmpty
-        addButton.isHidden = !albums.isEmpty
-        titleLabel.isHidden = albums.isEmpty
-        detailLabel.isHidden = albums.isEmpty
+        let empty = albums.isEmpty
+        emptyLabel.isHidden = !empty
+        emptyDetail.isHidden = !empty
+        addButton.isHidden = !empty
+        folderButton.isHidden = empty
         if bounds.width > 0 {
             collectionView.layoutIfNeeded()
             if let previous, let index = albums.firstIndex(where: { $0.id == previous }) {
                 scrollTo(index, animated: false)
             }
         }
-        updateCaption()
     }
 
     func centeredAlbum() -> Album? {
@@ -140,13 +137,6 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
         return cell
     }
 
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let index = currentIndex
-        guard index != lastCaptionIndex else { return }
-        lastCaptionIndex = index
-        updateCaption()
-    }
-
     private var currentIndex: Int {
         guard layout.itemStride > 1, !albums.isEmpty else { return 0 }
         let raw = collectionView.contentOffset.x / layout.itemStride
@@ -157,25 +147,6 @@ final class CoverFlowView: UIView, UICollectionViewDataSource, UICollectionViewD
         guard albums.indices.contains(index) else { return }
         let x = CGFloat(index) * layout.itemStride
         collectionView.setContentOffset(CGPoint(x: x, y: 0), animated: animated)
-        lastCaptionIndex = index
-        updateCaption()
-    }
-
-    private func updateCaption() {
-        guard let album = centeredAlbum() else {
-            titleLabel.text = nil
-            detailLabel.text = nil
-            return
-        }
-        titleLabel.text = album.title
-        let year = album.year.map(String.init)
-        let count = album.tracks.count == 1 ? "1 track" : "\(album.tracks.count) tracks"
-        detailLabel.attributedText = Theme.tracked(
-            [album.artist, year, count].compactMap { $0 }.joined(separator: "  ·  "),
-            size: 11,
-            color: Theme.muted,
-            kern: 1.1
-        )
     }
 
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
@@ -197,10 +168,10 @@ private final class CoverFlowLayout: UICollectionViewLayout {
 
     override func prepare() {
         guard let collectionView, collectionView.bounds.width > 20, collectionView.bounds.height > 20 else { return }
-        let art = min(collectionView.bounds.width * 0.52, collectionView.bounds.height * 0.74)
-        let side = min(max(128, art), 230)
-        let newSize = CGSize(width: side, height: side * 1.34)
-        let newSpacing = side * 0.2
+        let art = min(collectionView.bounds.width * 0.50, collectionView.bounds.height * 0.62)
+        let side = min(max(120, art), 230)
+        let newSize = CGSize(width: side, height: side)
+        let newSpacing = side * 0.28
         if newSize != itemSize || newSpacing != spacing {
             itemSize = newSize
             spacing = newSpacing
@@ -250,14 +221,15 @@ private final class CoverFlowLayout: UICollectionViewLayout {
         let attributes = UICollectionViewLayoutAttributes(forCellWith: indexPath)
         let centerX = sideInset + itemSize.width / 2 + CGFloat(indexPath.item) * itemStride
         attributes.size = itemSize
-        attributes.center = CGPoint(x: centerX, y: collectionView.bounds.height * 0.46)
+        attributes.center = CGPoint(x: centerX, y: collectionView.bounds.height * 0.42)
         let midpoint = collectionView.contentOffset.x + collectionView.bounds.width / 2
         let distance = itemStride > 1 ? (centerX - midpoint) / itemStride : 0
         let clamped = max(-1, min(1, distance))
         var transform = CATransform3DIdentity
-        transform.m34 = -1.0 / 700
-        transform = CATransform3DTranslate(transform, 0, 0, -abs(clamped) * 90)
-        transform = CATransform3DRotate(transform, -clamped * (55 * .pi / 180), 0, 1, 0)
+        transform.m34 = -1.0 / 520
+        transform = CATransform3DTranslate(transform, 0, 0, -abs(clamped) * 70)
+        let tilt = abs(clamped) < 0.04 ? 0 : -clamped * (58 * .pi / 180)
+        transform = CATransform3DRotate(transform, tilt, 0, 1, 0)
         attributes.transform3D = transform
         attributes.zIndex = Int(1000 - abs(distance) * 80)
         return attributes
@@ -293,8 +265,6 @@ private final class CoverCell: UICollectionViewCell {
     static let reuseID = "CoverCell"
 
     private let artView = UIImageView()
-    private let reflectionView = UIImageView()
-    private let gloss = CAGradientLayer()
     private var token = ""
 
     override init(frame: CGRect) {
@@ -304,21 +274,11 @@ private final class CoverCell: UICollectionViewCell {
         artView.clipsToBounds = true
         artView.layer.cornerRadius = 2
         artView.backgroundColor = UIColor(white: 0.12, alpha: 1)
-        reflectionView.contentMode = .scaleAspectFill
-        reflectionView.clipsToBounds = true
-        gloss.colors = [
-            UIColor.white.withAlphaComponent(0.18).cgColor,
-            UIColor.clear.cgColor
-        ]
-        gloss.startPoint = CGPoint(x: 0.5, y: 0)
-        gloss.endPoint = CGPoint(x: 0.5, y: 0.55)
-        artView.layer.addSublayer(gloss)
         contentView.addSubview(artView)
-        contentView.addSubview(reflectionView)
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.28
-        layer.shadowRadius = 8
-        layer.shadowOffset = CGSize(width: 0, height: 8)
+        layer.shadowOpacity = 0.35
+        layer.shadowRadius = 12
+        layer.shadowOffset = CGSize(width: 0, height: 10)
     }
 
     required init?(coder: NSCoder) {
@@ -327,11 +287,8 @@ private final class CoverCell: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let side = bounds.width
-        artView.frame = CGRect(x: 0, y: 0, width: side, height: side)
-        reflectionView.frame = CGRect(x: 0, y: side, width: side, height: max(0, bounds.height - side))
-        gloss.frame = artView.bounds
-        layer.shadowPath = UIBezierPath(roundedRect: artView.frame, cornerRadius: 2).cgPath
+        artView.frame = bounds
+        layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
 
     func configure(_ album: Album) {
@@ -339,10 +296,9 @@ private final class CoverCell: UICollectionViewCell {
         accessibilityLabel = "\(album.title), \(album.artist)"
         isAccessibilityElement = true
         let request = token
-        ArtworkCache.shared.load(path: album.artworkPath, title: album.title, artist: album.artist) { [weak self] cover, reflection in
+        ArtworkCache.shared.load(path: album.artworkPath, title: album.title, artist: album.artist) { [weak self] cover, _ in
             guard let self, self.token == request else { return }
             self.artView.image = cover
-            self.reflectionView.image = reflection
         }
     }
 }

@@ -1,11 +1,13 @@
 import UIKit
 
 enum Theme {
-    static let background = UIColor(red: 0.067, green: 0.059, blue: 0.051, alpha: 1)
-    static let backgroundLift = UIColor(red: 0.14, green: 0.12, blue: 0.10, alpha: 1)
-    static let ink = UIColor(red: 0.95, green: 0.92, blue: 0.86, alpha: 1)
-    static let muted = UIColor(red: 0.70, green: 0.64, blue: 0.56, alpha: 1)
+    static let background = UIColor(red: 0.067, green: 0.067, blue: 0.071, alpha: 1)
+    static let backgroundLift = UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
+    static let ink = UIColor(white: 0.96, alpha: 1)
+    static let muted = UIColor(white: 0.62, alpha: 1)
     static let amber = UIColor(red: 0.86, green: 0.62, blue: 0.36, alpha: 1)
+    static let teal = UIColor(red: 0.45, green: 0.63, blue: 0.66, alpha: 1)
+    static let cardBand = UIColor(red: 0.09, green: 0.10, blue: 0.12, alpha: 1)
     static let cardboard = UIColor(red: 0.74, green: 0.58, blue: 0.39, alpha: 1)
     static let cardboardDark = UIColor(red: 0.36, green: 0.25, blue: 0.15, alpha: 1)
     static let groove = UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)

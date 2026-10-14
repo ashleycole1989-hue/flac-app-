@@ -49,11 +49,15 @@ final class VinylStageView: UIView {
         self.init(frame: .zero)
     }
 
-    func setCover(_ image: UIImage) {
+    func setCover(_ image: UIImage?) {
         coverImage = image
         sleeve.setCover(image)
         renderedSide = 0
         setNeedsLayout()
+    }
+
+    func setCaption(title: String, artist: String) {
+        sleeve.setCaption(title: title, artist: artist)
     }
 
     var isRevealed: Bool { reveal > 0.02 }
@@ -110,24 +114,25 @@ final class VinylStageView: UIView {
         super.layoutSubviews()
         guard bounds.width > 20, bounds.height > 20 else { return }
 
-        let maxByHeight = (bounds.height - 8) / 1.72
-        let sleeveSide = min(bounds.width * 0.64, maxByHeight, 280)
+        let cardWidth = min(bounds.width * 0.62, bounds.height * 0.62, 260)
+        let cardHeight = cardWidth * 1.08
+        let cardY = min(max(18, bounds.height - cardHeight - 6), bounds.height * 0.30)
         let sleeveFrame = CGRect(
-            x: (bounds.width - sleeveSide) / 2,
-            y: bounds.height - sleeveSide,
-            width: sleeveSide,
-            height: sleeveSide
+            x: (bounds.width - cardWidth) / 2,
+            y: cardY,
+            width: cardWidth,
+            height: cardHeight
         )
         sleeveContainer.bounds = CGRect(origin: .zero, size: sleeveFrame.size)
         sleeveContainer.center = CGPoint(x: sleeveFrame.midX, y: sleeveFrame.midY)
         sleeve.frame = sleeveContainer.bounds
-        sleeveContainer.layer.shadowPath = UIBezierPath(roundedRect: sleeveContainer.bounds, cornerRadius: 4).cgPath
+        sleeveContainer.layer.shadowPath = UIBezierPath(roundedRect: sleeveContainer.bounds, cornerRadius: 2).cgPath
 
-        let vinylSide = sleeveSide * 0.90
+        let vinylSide = cardWidth * 0.98
         let radius = vinylSide / 2
-        let tucked = sleeveFrame.midY + 8
-        var extended = sleeveFrame.minY - radius * 0.42
-        extended = max(extended, radius + 2)
+        let tucked = sleeveFrame.minY + radius
+        var extended = sleeveFrame.minY + radius * 0.18
+        extended = min(tucked, max(extended, radius + 2))
         let centerY = tucked + (extended - tucked) * reveal
 
         vinylHolder.bounds = CGRect(x: 0, y: 0, width: vinylSide, height: vinylSide)
@@ -142,6 +147,9 @@ final class VinylStageView: UIView {
             renderedSide = vinylSide
             let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : 2
             discView.image = Artwork.vinyl(artwork: coverImage, diameter: vinylSide, scale: scale)
+        } else if coverImage == nil {
+            discView.image = nil
+            renderedSide = 0
         }
     }
 
@@ -182,23 +190,31 @@ final class VinylStageView: UIView {
 
 private final class SleeveView: UIView {
     private let artView = UIImageView()
-    private let lip = UIView()
-    private let lipLine = UIView()
-    private let slot = SlotFade()
+    private let band = UIView()
+    private let titleLabel = UILabel()
+    private let artistLabel = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
-        layer.cornerRadius = 3
-        backgroundColor = Theme.cardboard
+        layer.cornerRadius = 2
+        backgroundColor = Theme.cardBand
         artView.contentMode = .scaleAspectFill
         artView.clipsToBounds = true
-        lip.backgroundColor = Theme.cardboardDark
-        lipLine.backgroundColor = UIColor.white.withAlphaComponent(0.28)
+        artView.backgroundColor = UIColor(white: 0.12, alpha: 1)
+        band.backgroundColor = Theme.cardBand
+        titleLabel.font = Theme.sans(17, .regular)
+        titleLabel.textColor = Theme.ink
+        titleLabel.textAlignment = .center
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.7
+        artistLabel.textAlignment = .center
+        artistLabel.adjustsFontSizeToFitWidth = true
+        artistLabel.minimumScaleFactor = 0.7
         addSubview(artView)
-        addSubview(slot)
-        addSubview(lip)
-        addSubview(lipLine)
+        addSubview(band)
+        addSubview(titleLabel)
+        addSubview(artistLabel)
     }
 
     required init?(coder: NSCoder) {
@@ -209,49 +225,23 @@ private final class SleeveView: UIView {
         self.init(frame: .zero)
     }
 
-    func setCover(_ image: UIImage) {
+    func setCover(_ image: UIImage?) {
         artView.image = image
     }
 
-    override func draw(_ rect: CGRect) {
-        guard let ctx = UIGraphicsGetCurrentContext() else { return }
-        ctx.saveGState()
-        ctx.setAlpha(0.18)
-        ctx.setBlendMode(.overlay)
-        Artwork.noise.draw(in: rect)
-        ctx.restoreGState()
+    func setCaption(title: String, artist: String) {
+        titleLabel.text = title
+        artistLabel.attributedText = artist.isEmpty ? nil : Theme.tracked(artist, size: 11, color: Theme.muted, kern: 1.6)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        artView.frame = bounds.insetBy(dx: 14, dy: 16)
-        lip.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 12)
-        lipLine.frame = CGRect(x: 0, y: 12, width: bounds.width, height: 1)
-        slot.frame = CGRect(x: 14, y: 13, width: bounds.width - 28, height: 22)
-    }
-}
-
-private final class SlotFade: UIView {
-    override class var layerClass: AnyClass { CAGradientLayer.self }
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        isUserInteractionEnabled = false
-        guard let gradient = layer as? CAGradientLayer else { return }
-        gradient.colors = [
-            UIColor.black.withAlphaComponent(0.38).cgColor,
-            UIColor.clear.cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0.5, y: 0)
-        gradient.endPoint = CGPoint(x: 0.5, y: 1)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    convenience init() {
-        self.init(frame: .zero)
+        let bandHeight = bounds.height * 0.30
+        let artHeight = bounds.height - bandHeight
+        artView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: artHeight)
+        band.frame = CGRect(x: 0, y: artHeight, width: bounds.width, height: bandHeight)
+        titleLabel.frame = CGRect(x: 12, y: artHeight + bandHeight * 0.16, width: bounds.width - 24, height: 22)
+        artistLabel.frame = CGRect(x: 12, y: titleLabel.frame.maxY + 2, width: bounds.width - 24, height: 16)
     }
 }
 

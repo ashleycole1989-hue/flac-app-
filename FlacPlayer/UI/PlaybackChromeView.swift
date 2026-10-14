@@ -19,15 +19,13 @@ final class PlaybackChromeView: UIView {
         super.init(frame: frame)
         backgroundColor = .clear
 
-        titleLabel.font = Theme.serif(22, .semibold)
+        titleLabel.font = Theme.sans(22, .regular)
         titleLabel.textColor = Theme.ink
+        titleLabel.textAlignment = .center
         titleLabel.adjustsFontSizeToFitWidth = true
         titleLabel.minimumScaleFactor = 0.65
-        detailLabel.font = Theme.sans(12, .medium)
-        detailLabel.textColor = Theme.muted
-        indexLabel.font = Theme.mono(12)
-        indexLabel.textColor = Theme.muted
-        indexLabel.textAlignment = .right
+        detailLabel.textAlignment = .center
+        indexLabel.isHidden = true
         elapsedLabel.font = Theme.mono(12)
         elapsedLabel.textColor = Theme.muted
         durationLabel.font = Theme.mono(12)
@@ -36,22 +34,20 @@ final class PlaybackChromeView: UIView {
         elapsedLabel.text = "0:00"
         durationLabel.text = "0:00"
 
-        emptyTitle.font = Theme.serif(20, .medium)
+        emptyTitle.font = Theme.sans(20, .regular)
         emptyTitle.textColor = Theme.ink
         emptyTitle.textAlignment = .center
-        emptyTitle.text = "No music on this iPhone yet"
+        emptyTitle.text = "Choose a music folder"
         emptyDetail.font = Theme.sans(13, .regular)
         emptyDetail.textColor = Theme.muted
         emptyDetail.textAlignment = .center
-        emptyDetail.numberOfLines = 2
-        emptyDetail.text = "Add FLAC, ALAC, or MP3 files. They stay on the device."
-        addButton.setTitle("Add Music", for: .normal)
-        addButton.setTitleColor(Theme.amber, for: .normal)
+        emptyDetail.numberOfLines = 3
+        emptyDetail.text = "Every song in that folder and the folders inside it is added, using the cover art in the files."
+        addButton.setTitle("Choose Folder", for: .normal)
+        addButton.setTitleColor(Theme.ink, for: .normal)
         addButton.titleLabel?.font = Theme.sans(15, .semibold)
-        addButton.backgroundColor = UIColor(white: 0.14, alpha: 1)
+        addButton.backgroundColor = UIColor(white: 0.16, alpha: 1)
         addButton.layer.cornerRadius = 18
-        addButton.layer.borderWidth = 1
-        addButton.layer.borderColor = Theme.amber.withAlphaComponent(0.35).cgColor
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
 
         scrubber.onChange = { [weak self] time in
@@ -79,16 +75,15 @@ final class PlaybackChromeView: UIView {
         super.layoutSubviews()
         let width = bounds.width
         if trackVisible {
-            titleLabel.frame = CGRect(x: 0, y: 0, width: width - 64, height: 28)
-            indexLabel.frame = CGRect(x: width - 64, y: 4, width: 64, height: 20)
-            detailLabel.frame = CGRect(x: 0, y: 30, width: width, height: 18)
-            elapsedLabel.frame = CGRect(x: 0, y: 56, width: 54, height: 18)
-            durationLabel.frame = CGRect(x: width - 64, y: 56, width: 64, height: 18)
-            scrubber.frame = CGRect(x: 58, y: 52, width: width - 126, height: 28)
+            titleLabel.frame = CGRect(x: 0, y: 0, width: width, height: 28)
+            detailLabel.frame = CGRect(x: 0, y: 28, width: width, height: 18)
+            scrubber.frame = CGRect(x: 0, y: 52, width: width, height: 28)
+            elapsedLabel.frame = CGRect(x: 0, y: 78, width: 64, height: 16)
+            durationLabel.frame = CGRect(x: width - 64, y: 78, width: 64, height: 16)
         } else {
-            emptyTitle.frame = CGRect(x: 0, y: 0, width: width, height: 26)
-            emptyDetail.frame = CGRect(x: 12, y: 28, width: width - 24, height: 40)
-            addButton.frame = CGRect(x: (width - 160) / 2, y: 74, width: 160, height: 40)
+            emptyTitle.frame = CGRect(x: 0, y: 0, width: width, height: 24)
+            emptyDetail.frame = CGRect(x: 8, y: 26, width: width - 16, height: 40)
+            addButton.frame = CGRect(x: (width - 168) / 2, y: 68, width: 168, height: 36)
         }
     }
 
@@ -118,13 +113,7 @@ final class PlaybackChromeView: UIView {
         emptyDetail.isHidden = true
         addButton.isHidden = true
         titleLabel.text = track.title
-        let year = track.year.map(String.init)
-        detailLabel.attributedText = Theme.tracked(
-            [track.artist, track.album, year].compactMap { $0 }.joined(separator: "  ·  "),
-            size: 11,
-            color: Theme.muted,
-            kern: 1.05
-        )
+        detailLabel.attributedText = Theme.tracked(track.artist, size: 12, color: Theme.muted, kern: 1.4)
         indexLabel.text = "\(index + 1) / \(max(count, 1))"
         setNeedsLayout()
     }
@@ -242,13 +231,13 @@ private final class Scrubber: UIControl {
 
         let fraction = duration > 0 ? CGFloat(min(max(elapsed / duration, 0), 1)) : 0
         let x = left + (right - left) * fraction
-        ctx.setStrokeColor(Theme.amber.cgColor)
+        ctx.setStrokeColor(Theme.teal.cgColor)
         ctx.move(to: CGPoint(x: left, y: y))
         ctx.addLine(to: CGPoint(x: x, y: y))
         ctx.strokePath()
 
-        ctx.setFillColor(Theme.ink.cgColor)
-        ctx.fillEllipse(in: CGRect(x: x - 6, y: y - 6, width: 12, height: 12))
+        ctx.setFillColor(Theme.teal.cgColor)
+        ctx.fillEllipse(in: CGRect(x: x - 7, y: y - 7, width: 14, height: 14))
     }
 
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {

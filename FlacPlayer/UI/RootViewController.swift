@@ -58,7 +58,7 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
         view.addSubview(grain)
 
         indexingLabel.font = Theme.sans(11, .semibold)
-        indexingLabel.textColor = Theme.amber
+        indexingLabel.textColor = Theme.muted
         indexingLabel.isHidden = true
         indexingLabel.isUserInteractionEnabled = false
 
@@ -71,10 +71,10 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             self?.engine.seek(to: time)
         }
         chrome.onAdd = { [weak self] in
-            self?.presentImporter()
+            self?.presentFolderPicker()
         }
         coverFlow.onAdd = { [weak self] in
-            self?.presentImporter()
+            self?.presentFolderPicker()
         }
         coverFlow.onSelect = { [weak self] in
             self?.selectCenteredAlbum()
@@ -94,13 +94,13 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
 
             wheel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             wheel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -6),
-            wheel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.58),
+            wheel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.64),
             wheel.heightAnchor.constraint(equalTo: wheel.widthAnchor),
 
-            chrome.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
-            chrome.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
-            chrome.bottomAnchor.constraint(equalTo: wheel.topAnchor, constant: -10),
-            chrome.heightAnchor.constraint(equalToConstant: 124),
+            chrome.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 36),
+            chrome.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -36),
+            chrome.bottomAnchor.constraint(equalTo: wheel.topAnchor, constant: -8),
+            chrome.heightAnchor.constraint(equalToConstant: 108),
 
             stage.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             stage.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -121,7 +121,7 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             indexingLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
 
-        stage.setCover(ArtworkCache.shared.coverNow(path: nil, title: "FLAC", artist: "Player"))
+        stage.setCover(nil)
         haptics.prepare()
 
         tickProxy.owner = self
@@ -155,7 +155,9 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
         indexingLabel.isHidden = status == nil
         tryRestore(scanning: scanning)
         consumePendingImport()
-        if wasEmpty, !albums.isEmpty, engine.currentTrack == nil, mode == .playback, pendingPlayPath == nil {
+        if albums.isEmpty, engine.currentTrack == nil, pendingPlayPath == nil {
+            showLibrary(animated: false)
+        } else if wasEmpty, !albums.isEmpty, engine.currentTrack == nil, mode == .playback, pendingPlayPath == nil {
             showLibrary(animated: true)
         }
     }
@@ -172,13 +174,19 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             if let error = engine.lastError {
                 chrome.showStatus(error)
             }
+            stage.setCaption(title: track.title, artist: track.artist)
             if displayedTrackPath != track.path {
                 displayedTrackPath = track.path
-                let image = ArtworkCache.shared.coverNow(path: track.artworkPath, title: track.album, artist: track.albumArtist)
-                stage.setCover(image)
+                if let path = track.artworkPath, !path.isEmpty {
+                    stage.setCover(ArtworkCache.shared.coverNow(path: path, title: track.album, artist: track.albumArtist))
+                } else {
+                    stage.setCover(nil)
+                }
             }
         } else {
             displayedTrackPath = nil
+            stage.setCaption(title: "", artist: "")
+            stage.setCover(nil)
             chrome.showEmpty()
         }
         wheel.setPlaying(engine.transport == .playing)
@@ -245,16 +253,29 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
     }
 
     func clickWheelPlay(_ wheel: ClickWheelView) {
-        if mode == .library, engine.currentTrack == nil {
-            selectCenteredAlbum()
-            return
-        }
         haptics.press()
         engine.playClick()
-        togglePlayback()
+        showLibrary(animated: true)
+    }
+
+    func clickWheelDidHoldCenter(_ wheel: ClickWheelView) {
+        presentFolderPicker()
     }
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer {
+            if scoped { url.stopAccessingSecurityScopedResource() }
+        }
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            if let data = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                scanner.useRootBookmark(data)
+                showLibrary(animated: true)
+            }
+            return
+        }
         scanner.importURLs(urls, autoplay: false)
     }
 
@@ -386,15 +407,9 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
         return nil
     }
 
-    private func presentImporter() {
-        var types: [UTType] = [.mp3, .wav, .aiff, .mpeg4Audio, .audio]
-        for ext in ["flac", "aac", "m4a", "alac", "caf"] {
-            if let type = UTType(filenameExtension: ext) {
-                types.append(type)
-            }
-        }
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
-        picker.allowsMultipleSelection = true
+    private func presentFolderPicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+        picker.allowsMultipleSelection = false
         picker.delegate = self
         picker.overrideUserInterfaceStyle = .dark
         present(picker, animated: true)

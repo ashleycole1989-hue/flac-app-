@@ -79,7 +79,7 @@ enum MetadataReader {
                 }
             }
 
-            if artwork == nil, item.commonKey == .commonKeyArtwork || key.contains("artwork") || identifier.contains("picture") {
+            if artwork == nil, isArtwork(item, key: key, identifier: identifier) {
                 artwork = image(from: item)
             }
         }
@@ -147,15 +147,45 @@ enum MetadataReader {
         return year
     }
 
+    private static func isArtwork(_ item: AVMetadataItem, key: String, identifier: String) -> Bool {
+        if item.commonKey == .commonKeyArtwork { return true }
+        if key.contains("artwork") || key == "covr" || key == "apic" { return true }
+        if identifier.contains("picture") || identifier.contains("artwork") || identifier.contains("covr") {
+            return true
+        }
+        return false
+    }
+
     private static func image(from item: AVMetadataItem) -> UIImage? {
-        if let data = item.dataValue, let image = UIImage(data: data) {
+        if item.statusOfValue(forKey: "dataValue", error: nil) != .loaded {
+            let gate = SignalGate()
+            item.loadValuesAsynchronously(forKeys: ["dataValue"]) {
+                gate.signal()
+            }
+            _ = gate.semaphore.wait(timeout: .now() + 4)
+        }
+        if let image = item.value as? UIImage {
             return image
         }
-        if let data = item.value as? Data, let image = UIImage(data: data) {
+        if let data = item.dataValue, let image = image(from: data) {
+            return image
+        }
+        if let data = item.value as? Data, let image = image(from: data) {
             return image
         }
         if let dictionary = item.value as? [String: Any], let data = dictionary["data"] as? Data {
-            return UIImage(data: data)
+            return image(from: data)
+        }
+        return nil
+    }
+
+    private static func image(from data: Data) -> UIImage? {
+        if let image = UIImage(data: data) { return image }
+        if let range = data.range(of: Data([0xFF, 0xD8, 0xFF])) {
+            return UIImage(data: data.subdata(in: range.lowerBound..<data.endIndex))
+        }
+        if let range = data.range(of: Data([0x89, 0x50, 0x4E, 0x47])) {
+            return UIImage(data: data.subdata(in: range.lowerBound..<data.endIndex))
         }
         return nil
     }

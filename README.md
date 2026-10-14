@@ -14,10 +14,10 @@ Offline music player for a jailbroken iPhone 7. It keeps a SQLite index of local
 
 | Control | Playback | Library |
 | --- | --- | --- |
-| LIBRARY / MENU | Open the shelf. The record slides back into the jacket. | Return to the platter. |
+| MENU or LIBRARY | Open the shelf. The record slides back into the jacket. | |
 | Wheel drag | Volume. Clockwise turns it up. | Flip through albums, with momentum. |
 | Center | Play or pause. | Play the centered album. |
-| Play / pause | Play or pause. | Play or pause. If nothing is loaded, play the centered album. |
+| Hold center | Choose the music folder. | Choose the music folder. |
 | Previous / next | Previous or next track. Previous restarts the song after 3 seconds. | Move one album. |
 | Progress bar | Scrub. |  |
 
@@ -25,11 +25,11 @@ Lock screen controls and headphone unplug behave like a normal player.
 
 ## Add music
 
-Use **Add Music** in the app and pick files from the Files app. They are copied into this app and indexed.
+Open the shelf and tap **Choose Folder**, or the **Folder** label once albums are showing. You can also press and hold the center of the wheel. Pick the top folder of your library. The app reads every audio file in that folder and in the folders inside it, and keeps playing them from that location.
 
-Or copy files with the Files app or Filza into **On My iPhone → Flac Player**. The app watches that folder.
+Cover art is taken from the file itself. If a song has no picture, the app uses `cover.jpg`, `folder.jpg`, or the only image sitting in that song's folder.
 
-For a shared jailbreak folder, create `/var/mobile/Media/FlacPlayer` and put albums there. To add another folder, create `library.path` in the app's Documents folder with one absolute path per line. Lines starting with `#` are ignored. Reading outside the sandbox only works if the app is installed without a sandbox (see below).
+You can still copy files into **On My iPhone → Flac Player**, or into `/var/mobile/Media/FlacPlayer` on a jailbreak. A `library.path` file in Documents, one absolute path per line, adds more folders. Lines starting with `#` are ignored. Reading outside the sandbox only works if the app is installed without a sandbox (see below).
 
 ## Build
 

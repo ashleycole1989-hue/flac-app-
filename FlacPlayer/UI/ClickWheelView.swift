@@ -8,6 +8,7 @@ protocol ClickWheelDelegate: AnyObject {
     func clickWheelNext(_ wheel: ClickWheelView)
     func clickWheelCenter(_ wheel: ClickWheelView)
     func clickWheelPlay(_ wheel: ClickWheelView)
+    func clickWheelDidHoldCenter(_ wheel: ClickWheelView)
 }
 
 final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
@@ -30,6 +31,8 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
     private var hapticBucket: CGFloat = 0
     private var notchAngle: CGFloat = -.pi / 2
     private var allowsMomentum = false
+    private var browsing = false
+    private var playing = false
     private let hapticStep: CGFloat = .pi / 10
 
     override init(frame: CGRect) {
@@ -41,19 +44,14 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         layer.shadowRadius = 16
         layer.shadowOffset = CGSize(width: 0, height: 8)
 
-        notchOrbit.isUserInteractionEnabled = false
-        notch.backgroundColor = Theme.ink.withAlphaComponent(0.85)
-        notch.layer.cornerRadius = 2
-        notchOrbit.addSubview(notch)
-        addSubview(notchOrbit)
+        notchOrbit.isHidden = true
 
-        configure(menuButton, accessibility: "Library")
+        configure(menuButton, accessibility: "Menu")
         configure(previousButton, accessibility: "Previous")
         configure(nextButton, accessibility: "Next")
-        configure(playButton, accessibility: "Play")
+        configure(playButton, accessibility: "Library")
         previousButton.setImage(UIImage(systemName: "backward.end.fill", withConfiguration: symbolConfig), for: .normal)
         nextButton.setImage(UIImage(systemName: "forward.end.fill", withConfiguration: symbolConfig), for: .normal)
-        playButton.setImage(UIImage(systemName: "play.fill", withConfiguration: symbolConfig), for: .normal)
         setBrowsing(false)
 
         menuButton.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
@@ -72,6 +70,10 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         pan.maximumNumberOfTouches = 1
         pan.delegate = self
         addGestureRecognizer(pan)
+
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
+        hold.minimumPressDuration = 0.55
+        addGestureRecognizer(hold)
 
         momentumProxy.wheel = self
         let link = CADisplayLink(target: momentumProxy, selector: #selector(WheelMomentumProxy.step))
@@ -95,71 +97,73 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
     }
 
     func setBrowsing(_ browsing: Bool) {
+        self.browsing = browsing
         allowsMomentum = browsing
-        let title = browsing ? "MENU" : "LIBRARY"
+        menuButton.isHidden = browsing
+        previousButton.isHidden = browsing
+        nextButton.isHidden = browsing
+        playButton.isHidden = browsing
+        applyCenterSymbol()
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: Theme.sans(10, .bold),
-            .foregroundColor: Theme.ink.withAlphaComponent(0.86),
-            .kern: 1.05
+            .font: Theme.sans(11, .semibold),
+            .foregroundColor: Theme.ink.withAlphaComponent(0.88),
+            .kern: 1.4
         ]
-        menuButton.setAttributedTitle(NSAttributedString(string: title, attributes: attributes), for: .normal)
-        menuButton.accessibilityLabel = browsing ? "Menu" : "Library"
+        menuButton.setAttributedTitle(NSAttributedString(string: "MENU", attributes: attributes), for: .normal)
+        menuButton.setImage(nil, for: .normal)
+        playButton.setImage(nil, for: .normal)
+        playButton.setAttributedTitle(NSAttributedString(string: "LIBRARY", attributes: attributes), for: .normal)
         if !browsing { stopMomentum() }
+        setNeedsDisplay()
     }
 
     func setPlaying(_ playing: Bool) {
+        self.playing = playing
+        applyCenterSymbol()
+    }
+
+    private func applyCenterSymbol() {
+        if browsing {
+            centerButton.setSymbol(nil)
+            centerButton.accessibilityLabel = "Play album"
+            return
+        }
         let name = playing ? "pause.fill" : "play.fill"
-        playButton.setImage(UIImage(systemName: name, withConfiguration: symbolConfig), for: .normal)
-        playButton.accessibilityLabel = playing ? "Pause" : "Play"
+        centerButton.setSymbol(name)
+        centerButton.accessibilityLabel = playing ? "Pause" : "Play"
     }
 
     override func draw(_ rect: CGRect) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let circle = bounds.insetBy(dx: 1, dy: 1)
-        ctx.addEllipse(in: circle)
         ctx.setFillColor(UIColor(white: 0.16, alpha: 1).cgColor)
-        ctx.fillPath()
+        ctx.fillEllipse(in: circle)
 
-        ctx.saveGState()
-        ctx.addEllipse(in: circle)
-        ctx.clip()
-        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.045).cgColor)
+        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.08).cgColor)
         ctx.setLineWidth(1)
-        var y: CGFloat = 0
-        while y < bounds.height {
-            ctx.move(to: CGPoint(x: 0, y: y))
-            ctx.addLine(to: CGPoint(x: bounds.width, y: y))
-            y += 3
-        }
-        ctx.strokePath()
-        ctx.restoreGState()
+        ctx.strokeEllipse(in: bounds.insetBy(dx: 1.5, dy: 1.5))
 
-        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.16).cgColor)
-        ctx.setLineWidth(1.5)
-        ctx.strokeEllipse(in: bounds.insetBy(dx: 2, dy: 2))
-
-        let inner = bounds.width * 0.20
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        ctx.setFillColor(UIColor(white: 0.06, alpha: 1).cgColor)
-        ctx.fillEllipse(in: CGRect(x: center.x - inner, y: center.y - inner, width: inner * 2, height: inner * 2))
-        ctx.setStrokeColor(UIColor.black.withAlphaComponent(0.65).cgColor)
-        ctx.setLineWidth(2)
-        ctx.strokeEllipse(in: CGRect(x: center.x - inner, y: center.y - inner, width: inner * 2, height: inner * 2))
+        let ring = bounds.width * (browsing ? 0.31 : 0.27)
+        ctx.setFillColor(UIColor(white: 0.09, alpha: 1).cgColor)
+        ctx.fillEllipse(in: CGRect(x: center.x - ring, y: center.y - ring, width: ring * 2, height: ring * 2))
+        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.05).cgColor)
+        ctx.strokeEllipse(in: CGRect(x: center.x - ring, y: center.y - ring, width: ring * 2, height: ring * 2))
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let mid = CGPoint(x: bounds.midX, y: bounds.midY)
         let orbit = bounds.width * 0.34
-        menuButton.bounds = CGRect(x: 0, y: 0, width: 88, height: 36)
+        menuButton.bounds = CGRect(x: 0, y: 0, width: 96, height: 32)
         previousButton.bounds = CGRect(x: 0, y: 0, width: 44, height: 44)
         nextButton.bounds = CGRect(x: 0, y: 0, width: 44, height: 44)
-        playButton.bounds = CGRect(x: 0, y: 0, width: 44, height: 44)
+        playButton.bounds = CGRect(x: 0, y: 0, width: 96, height: 32)
         menuButton.center = CGPoint(x: mid.x, y: mid.y - orbit)
         previousButton.center = CGPoint(x: mid.x - orbit, y: mid.y)
         nextButton.center = CGPoint(x: mid.x + orbit, y: mid.y)
         playButton.center = CGPoint(x: mid.x, y: mid.y + orbit)
-        let cap = bounds.width * 0.36
+        let cap = bounds.width * (browsing ? 0.52 : 0.42)
         centerButton.bounds = CGRect(x: 0, y: 0, width: cap, height: cap)
         centerButton.center = mid
 
@@ -179,7 +183,7 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         let point = touch.location(in: self)
         let distance = hypot(point.x - bounds.midX, point.y - bounds.midY)
         let outer = bounds.width / 2
-        let inner = bounds.width * 0.19
+        let inner = bounds.width * 0.27
         if distance < inner || distance > outer + 6 { return false }
         for key in [menuButton, previousButton, nextButton, playButton] where key.frame.contains(point) {
             return false
@@ -200,7 +204,7 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
             haptics.prepare()
         case .changed:
             let distance = hypot(point.x - bounds.midX, point.y - bounds.midY)
-            if distance < bounds.width * 0.2 { return }
+            if distance < bounds.width * 0.27 { return }
             var delta = angle - lastAngle
             if delta > .pi { delta -= 2 * .pi }
             if delta < -.pi { delta += 2 * .pi }
@@ -294,6 +298,14 @@ final class ClickWheelView: UIView, UIGestureRecognizerDelegate {
         delegate?.clickWheelCenter(self)
     }
 
+    @objc private func held(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        let point = gesture.location(in: self)
+        let distance = hypot(point.x - bounds.midX, point.y - bounds.midY)
+        guard distance < bounds.width * 0.24 else { return }
+        delegate?.clickWheelDidHoldCenter(self)
+    }
+
     private func configure(_ button: UIButton, accessibility: String) {
         button.tintColor = Theme.ink.withAlphaComponent(0.86)
         button.accessibilityLabel = accessibility
@@ -312,27 +324,17 @@ private final class WheelKey: UIButton {
 }
 
 private final class CenterCap: UIControl {
-    private let gradient = CAGradientLayer()
-    private let label = UILabel()
+    private let symbol = UIImageView()
+    private let symbolConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        gradient.colors = [
-            UIColor(white: 0.30, alpha: 1).cgColor,
-            UIColor(white: 0.10, alpha: 1).cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0.5, y: 0)
-        gradient.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.addSublayer(gradient)
-        layer.borderWidth = 1
-        layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
-        label.text = "SELECT"
-        label.font = Theme.sans(9, .bold)
-        label.textColor = Theme.ink.withAlphaComponent(0.55)
-        label.textAlignment = .center
-        label.isUserInteractionEnabled = false
-        addSubview(label)
-        accessibilityLabel = "Select"
+        backgroundColor = UIColor(white: 0.20, alpha: 1)
+        symbol.contentMode = .scaleAspectFit
+        symbol.tintColor = Theme.ink
+        symbol.isUserInteractionEnabled = false
+        addSubview(symbol)
+        accessibilityLabel = "Play"
     }
 
     required init?(coder: NSCoder) {
@@ -343,16 +345,31 @@ private final class CenterCap: UIControl {
         self.init(frame: .zero)
     }
 
+    func setSymbol(_ name: String?) {
+        if let name {
+            symbol.image = UIImage(systemName: name, withConfiguration: symbolConfig)
+            symbol.isHidden = false
+            backgroundColor = UIColor(white: 0.20, alpha: 1)
+        } else {
+            symbol.image = nil
+            symbol.isHidden = true
+            backgroundColor = UIColor(white: 0.13, alpha: 1)
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        gradient.frame = bounds
-        let radius = bounds.width / 2
-        layer.cornerRadius = radius
-        gradient.cornerRadius = radius
-        label.frame = bounds
+        layer.cornerRadius = bounds.width / 2
+        let side = bounds.width * 0.34
+        symbol.frame = CGRect(
+            x: (bounds.width - side) / 2,
+            y: (bounds.height - side) / 2,
+            width: side,
+            height: side
+        )
     }
 
     override var isHighlighted: Bool {
-        didSet { gradient.opacity = isHighlighted ? 0.62 : 1 }
+        didSet { alpha = isHighlighted ? 0.55 : 1 }
     }
 }
