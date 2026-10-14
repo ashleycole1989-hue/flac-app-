@@ -9,7 +9,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: xcodebuild -project FlacPlayer.xcodeproj -scheme FlacPlayer -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+        run: |
+          xcodebuild -project FlacPlayer.xcodeproj -scheme FlacPlayer -configuration Release -sdk iphoneos -derivedDataPath build \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
       - name: Package
         run: |
           mkdir -p Payload
