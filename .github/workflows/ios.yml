@@ -1,0 +1,21 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: xcodebuild -project FlacPlayer.xcodeproj -scheme FlacPlayer -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+      - name: Package
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/FlacPlayer.app Payload/
+          zip -qry FlacPlayer-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlacPlayer-unsigned
+          path: FlacPlayer-unsigned.ipa
