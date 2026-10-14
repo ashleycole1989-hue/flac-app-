@@ -174,7 +174,6 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             if let error = engine.lastError {
                 chrome.showStatus(error)
             }
-            stage.setCaption(title: track.title, artist: track.artist)
             if displayedTrackPath != track.path {
                 displayedTrackPath = track.path
                 if let path = track.artworkPath, !path.isEmpty {
@@ -185,7 +184,6 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
             }
         } else {
             displayedTrackPath = nil
-            stage.setCaption(title: "", artist: "")
             stage.setCover(nil)
             chrome.showEmpty()
         }
@@ -270,9 +268,13 @@ final class RootViewController: UIViewController, LibraryScannerDelegate, Playba
         }
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
-            if let data = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            do {
+                let data = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
                 scanner.useRootBookmark(data)
                 showLibrary(animated: true)
+            } catch {
+                indexingLabel.isHidden = false
+                indexingLabel.text = "Could not open that folder"
             }
             return
         }

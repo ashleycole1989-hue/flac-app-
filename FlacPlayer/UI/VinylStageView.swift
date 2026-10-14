@@ -56,10 +56,6 @@ final class VinylStageView: UIView {
         setNeedsLayout()
     }
 
-    func setCaption(title: String, artist: String) {
-        sleeve.setCaption(title: title, artist: artist)
-    }
-
     var isRevealed: Bool { reveal > 0.02 }
 
     func setReveal(_ value: CGFloat, animated: Bool, completion: (() -> Void)? = nil) {
@@ -115,7 +111,7 @@ final class VinylStageView: UIView {
         guard bounds.width > 20, bounds.height > 20 else { return }
 
         let cardWidth = min(bounds.width * 0.62, bounds.height * 0.62, 260)
-        let cardHeight = cardWidth * 1.08
+        let cardHeight = cardWidth
         let cardY = min(max(18, bounds.height - cardHeight - 6), bounds.height * 0.30)
         let sleeveFrame = CGRect(
             x: (bounds.width - cardWidth) / 2,
@@ -190,31 +186,16 @@ final class VinylStageView: UIView {
 
 private final class SleeveView: UIView {
     private let artView = UIImageView()
-    private let band = UIView()
-    private let titleLabel = UILabel()
-    private let artistLabel = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
         layer.cornerRadius = 2
-        backgroundColor = Theme.cardBand
-        artView.contentMode = .scaleAspectFill
+        backgroundColor = UIColor(white: 0.1, alpha: 1)
+        artView.contentMode = .scaleAspectFit
         artView.clipsToBounds = true
-        artView.backgroundColor = UIColor(white: 0.12, alpha: 1)
-        band.backgroundColor = Theme.cardBand
-        titleLabel.font = Theme.sans(17, .regular)
-        titleLabel.textColor = Theme.ink
-        titleLabel.textAlignment = .center
-        titleLabel.adjustsFontSizeToFitWidth = true
-        titleLabel.minimumScaleFactor = 0.7
-        artistLabel.textAlignment = .center
-        artistLabel.adjustsFontSizeToFitWidth = true
-        artistLabel.minimumScaleFactor = 0.7
+        artView.backgroundColor = UIColor(white: 0.1, alpha: 1)
         addSubview(artView)
-        addSubview(band)
-        addSubview(titleLabel)
-        addSubview(artistLabel)
     }
 
     required init?(coder: NSCoder) {
@@ -229,19 +210,9 @@ private final class SleeveView: UIView {
         artView.image = image
     }
 
-    func setCaption(title: String, artist: String) {
-        titleLabel.text = title
-        artistLabel.attributedText = artist.isEmpty ? nil : Theme.tracked(artist, size: 11, color: Theme.muted, kern: 1.6)
-    }
-
     override func layoutSubviews() {
         super.layoutSubviews()
-        let bandHeight = bounds.height * 0.30
-        let artHeight = bounds.height - bandHeight
-        artView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: artHeight)
-        band.frame = CGRect(x: 0, y: artHeight, width: bounds.width, height: bandHeight)
-        titleLabel.frame = CGRect(x: 12, y: artHeight + bandHeight * 0.16, width: bounds.width - 24, height: 22)
-        artistLabel.frame = CGRect(x: 12, y: titleLabel.frame.maxY + 2, width: bounds.width - 24, height: 16)
+        artView.frame = bounds
     }
 }
 

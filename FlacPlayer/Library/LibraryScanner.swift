@@ -21,7 +21,7 @@ final class LibraryScanner {
     private var scanWork: DispatchWorkItem?
 
     private let audioExtensions: Set<String> = ["flac", "mp3", "m4a", "aac", "wav", "aiff", "aif", "alac", "caf"]
-    private let artworkRevision = 2
+    private let artworkRevision = 3
     private let bookmarkKey = "libraryRootBookmarks"
     private var securedRoots: [(url: URL, scoped: Bool)] = []
     private var watchedPaths = Set<String>()
@@ -304,6 +304,17 @@ final class LibraryScanner {
 
     private func folderArtwork(for file: URL, cache: inout [String: String]) -> String? {
         let directory = file.deletingLastPathComponent()
+        if let saved = storedFolderImage(in: directory, cache: &cache) {
+            return saved
+        }
+        let parent = directory.deletingLastPathComponent()
+        if parent.standardizedFileURL.path != directory.standardizedFileURL.path {
+            return storedFolderImage(in: parent, cache: &cache)
+        }
+        return nil
+    }
+
+    private func storedFolderImage(in directory: URL, cache: inout [String: String]) -> String? {
         let key = directory.path
         if let cached = cache[key] {
             return cached.isEmpty ? nil : cached
@@ -357,7 +368,7 @@ final class LibraryScanner {
             guard scoped || FileManager.default.isReadableFile(atPath: url.path) else { continue }
             securedRoots.append((url, scoped))
             watch(url)
-            if stale, let updated = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            if stale, let updated = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil) {
                 fresh.append(updated)
             } else {
                 fresh.append(data)

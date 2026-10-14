@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flac Player preview</title>
+<style>
+  :root {
+    --bg: #111113;
+    --ink: #f4f4f4;
+    --muted: #9d9d9d;
+    --teal: #73a1a8;
+    --wheel: #2b2b2e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: #241c18;
+    color: var(--ink);
+    font-family: "Segoe UI", sans-serif;
+  }
+  .note {
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    text-align: center;
+    color: #d9cfc6;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .wrap, .phone, .screen, .flow, .stage { transform-style: preserve-3d; }
+  .wrap {
+    position: fixed;
+    left: 50%;
+    top: 54%;
+    transform-origin: center center;
+  }
+  .phone {
+    width: 390px;
+    height: 780px;
+    background: radial-gradient(120% 80% at 50% 18%, #1c1c20, var(--bg) 55%);
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .screen.off { visibility: hidden; pointer-events: none; }
+  .status {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    z-index: 5;
+  }
+  .folder-link {
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    z-index: 6;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: 600 12px "Segoe UI", sans-serif;
+    letter-spacing: 0.04em;
+    padding: 8px;
+    cursor: pointer;
+  }
+  .flow {
+    flex: 1;
+    position: relative;
+    perspective: 900px;
+    overflow: visible;
+  }
+  .cover {
+    position: absolute;
+    width: 196px;
+    height: 196px;
+    left: 50%;
+    top: 43%;
+    margin: -98px 0 0 -98px;
+    background: #222;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+  }
+    .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .empty {
+    position: absolute;
+    left: 36px;
+    right: 36px;
+    top: 34%;
+    text-align: center;
+  }
+  .empty h1 { font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+  .empty p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+  .choose {
+    background: #2a2a2e;
+    color: var(--ink);
+    border: 0;
+    border-radius: 18px;
+    padding: 12px 22px;
+    font: 600 15px "Segoe UI", sans-serif;
+    cursor: pointer;
+  }
+  .stage { flex: 1; position: relative; }
+  .vinyl {
+    width: 228px;
+    height: 228px;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    margin-left: -114px;
+    top: 132px;
+    z-index: 1;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 0 33%, rgba(255,255,255,0.05) 33.4% 33.8%, transparent 34%),
+      repeating-radial-gradient(circle at 50% 50%, #242424 0 1px, #0d0d0d 2px, #161616 3px);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+    transition: top 0.65s cubic-bezier(.22, .8, .28, 1);
+  }
+  .vinyl.out { top: 18px; }
+  .vinyl.spin { animation: spin 1.8s linear infinite; }
+  .vinyl .label {
+    position: absolute;
+    inset: 33%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a1a1a;
+  }
+  .vinyl .label img { width: 100%; height: 100%; object-fit: cover; }
+  .vinyl .hole {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: #111;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.35);
+  }
+  .sheen {
+    position: absolute;
+    left: 50%;
+    margin-left: -114px;
+    width: 228px;
+    height: 228px;
+    border-radius: 50%;
+    top: 132px;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.22), transparent 42%);
+    transition: top 0.65s cubic-bezier(.22, .8, .28, 1);
+  }
+  .vinyl.out + .sheen, .sheen.out { top: 18px; }
+  .sleeve {
+    position: absolute;
+    width: 236px;
+    height: 236px;
+    left: 50%;
+    margin-left: -118px;
+    top: 128px;
+    z-index: 3;
+    background: #1a1a1a;
+    overflow: hidden;
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4);
+  }
+  .sleeve .art { width: 100%; height: 100%; object-fit: contain; display: block; background: #1a1a1a; }
+  .meta { text-align: center; padding: 0 36px; }
+  .meta h2 { margin: 0; font-weight: 400; font-size: 22px; }
+  .meta p {
+    margin: 4px 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+  }
+  .bar {
+    height: 22px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .bar i {
+    display: block;
+    height: 3px;
+    width: 100%;
+    background: rgba(255,255,255,0.16);
+    border-radius: 2px;
+    position: relative;
+  }
+  .bar b {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: var(--teal);
+    border-radius: 2px;
+  }
+  .bar b::after {
+    content: "";
+    position: absolute;
+    right: -7px;
+    top: -5px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--teal);
+  }
+  .times {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .wheel {
+    width: 250px;
+    height: 250px;
+    margin: 16px auto 22px;
+    border-radius: 50%;
+    background: var(--wheel);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 12px 24px rgba(0,0,0,0.35);
+    position: relative;
+    touch-action: none;
+    flex: none;
+  }
+  .cap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 104px;
+    height: 104px;
+    margin: -52px 0 0 -52px;
+    border-radius: 50%;
+    background: #343438;
+    border: 0;
+    color: white;
+    cursor: pointer;
+  }
+  .wheel.plain .cap { width: 132px; height: 132px; margin: -66px 0 0 -66px; background: #1a1a1c; }
+  .wheel.plain .key { display: none; }
+  .key {
+    position: absolute;
+    background: none;
+    border: 0;
+    color: rgba(255,255,255,0.88);
+    cursor: pointer;
+    font: 600 11px "Segoe UI", sans-serif;
+    letter-spacing: 0.14em;
+    padding: 8px;
+  }
+  .key.menu { left: 50%; top: 18px; transform: translateX(-50%); }
+  .key.lib { left: 50%; bottom: 14px; transform: translateX(-50%); }
+  .key.prev { left: 22px; top: 50%; transform: translateY(-50%); font-size: 18px; letter-spacing: 0; }
+  .key.next { right: 22px; top: 50%; transform: translateY(-50%); font-size: 18px; letter-spacing: 0; }
+  .volume {
+    position: absolute;
+    right: 18px;
+    bottom: 150px;
+    width: 6px;
+    height: 110px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.12);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .volume.show { opacity: 1; }
+  .volume b {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--teal);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <p class="note">This is a Windows preview of the iPhone screens. Choosing a folder reads the music on this PC. It does not use a Sideloadly slot.</p>
+  <div class="wrap">
+    <div class="phone">
+      <div id="library" class="screen">
+        <div id="status" class="status"></div>
+        <button id="folderLink" class="folder-link" hidden>Folder</button>
+        <div id="flow" class="flow"></div>
+        <div id="empty" class="empty">
+          <h1>Choose a music folder</h1>
+          <p>Every song in that folder and the folders inside it is added, using the cover art in the files.</p>
+          <button id="choose" class="choose">Choose Folder</button>
+        </div>
+        <div id="wheelLib" class="wheel plain"></div>
+      </div>
+      <div id="playback" class="screen off">
+        <div class="stage">
+          <div id="vinyl" class="vinyl">
+            <div class="label"><img id="labelArt" alt=""></div>
+            <div class="hole"></div>
+          </div>
+          <div id="sheen" class="sheen"></div>
+          <div class="sleeve">
+            <img id="sleeveArt" class="art" alt="">
+          </div>
+        </div>
+        <div class="meta">
+          <h2 id="songTitle"></h2>
+          <p id="songArtist"></p>
+          <div id="scrub" class="bar"><i><b id="scrubFill"></b></i></div>
+          <div class="times"><span id="elapsed">0:00</span><span id="total">0:00</span></div>
+        </div>
+        <div id="wheelPlay" class="wheel">
+          <button class="key menu" data-act="library">MENU</button>
+          <button class="key prev" data-act="prev">&#9664;&#9664;</button>
+          <button class="key next" data-act="next">&#9654;&#9654;</button>
+          <button class="key lib" data-act="library">LIBRARY</button>
+          <button id="playCap" class="cap" data-act="center"></button>
+        </div>
+        <div id="volume" class="volume"><b id="volumeFill"></b></div>
+      </div>
+    </div>
+  </div>
+  <input id="folder" type="file" webkitdirectory multiple hidden>
+  <script>
+    const audioExt = new Set(["flac", "mp3", "m4a", "aac", "wav", "aiff", "aif", "caf", "ogg", "alac"]);
+    const imageExt = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+    const preferredCover = ["cover", "folder", "front", "album", "artwork", "albumart", "thumb"];
+
+    const library = document.getElementById("library");
+    const playback = document.getElementById("playback");
+    const flow = document.getElementById("flow");
+    const empty = document.getElementById("empty");
+    const status = document.getElementById("status");
+    const folderLink = document.getElementById("folderLink");
+    const folderInput = document.getElementById("folder");
+    const vinyl = document.getElementById("vinyl");
+    const sheen = document.getElementById("sheen");
+    const playCap = document.getElementById("playCap");
+
+    const audio = new Audio();
+    audio.preload = "auto";
+    let albums = [];
+    let mode = "library";
+    let position = 0;
+    let trackIndex = 0;
+    let fake = null;
+    let volumeTimer = 0;
+    let objectURLs = [];
+
+    function extOf(name) {
+      const dot = name.lastIndexOf(".");
+      return dot < 0 ? "" : name.slice(dot + 1).toLowerCase();
+    }
+
+    function parentName(file) {
+      const parts = (file.webkitRelativePath || file.name).split(/[\\/]/);
+      return parts.length >= 2 ? parts[parts.length - 2] : "Unknown Album";
+    }
+
+    function dirOf(file) {
+      const parts = (file.webkitRelativePath || file.name).split(/[\\/]/);
+      parts.pop();
+      return parts.join("/");
+    }
+
+    function fmt(time) {
+      if (!Number.isFinite(time) || time < 0) return "0:00";
+      const total = Math.floor(time);
+      const minutes = Math.floor(total / 60);
+      const seconds = total % 60;
+      return minutes + ":" + String(seconds).padStart(2, "0");
+    }
+
+    function fit() {
+      const scale = Math.min(1, (innerHeight - 72) / 800, (innerWidth - 24) / 420);
+      document.querySelector(".wrap").style.transform = "translate(-50%, -50%) scale(" + scale + ")";
+    }
+    addEventListener("resize", fit);
+    fit();
+
+    function demoCover(title, a, b) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 600;
+      const ctx = canvas.getContext("2d");
+      const paint = ctx.createLinearGradient(0, 0, 600, 600);
+      paint.addColorStop(0, a);
+      paint.addColorStop(1, b);
+      ctx.fillStyle = paint;
+      ctx.fillRect(0, 0, 600, 600);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "600 46px Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(title, 300, 310);
+      return canvas.toDataURL("image/jpeg", 0.85);
+    }
+
+    function loadDemo() {
+      const sets = [
+        ["Midnight Drive", "AURORA", "#1b3a5a", "#c4552a"],
+        ["Northline", "SHIEA", "#3a2a12", "#d8a15a"],
+        ["Paper Boats", "LOW SUN", "#12343a", "#8fd0c8"],
+        ["Static Garden", "MARROW", "#2a1830", "#e0a0c0"],
+        ["After Heat", "KIN", "#3a1a16", "#f0c090"]
+      ];
+      albums = sets.map(([title, artist, a, b], index) => ({
+        id: "demo-" + index,
+        title: title,
+        artist: artist,
+        cover: demoCover(title, a, b),
+        tracks: [
+          { title: title, artist: artist, duration: 227, file: null },
+          { title: title + " (reprise)", artist: artist, duration: 146, file: null }
+        ]
+      }));
+      position = 0;
+      showLibrary(false);
+    }
+
+    function currentAlbum() {
+      const index = Math.max(0, Math.min(albums.length - 1, Math.round(position)));
+      return albums[index] || null;
+    }
+
+    function renderFlow() {
+      flow.innerHTML = "";
+      const has = albums.length > 0;
+      empty.hidden = has;
+      folderLink.hidden = !has;
+      albums.forEach((album, index) => {
+        const delta = index - position;
+        if (Math.abs(delta) > 3.2) return;
+        const card = document.createElement("button");
+        card.className = "cover";
+        card.style.zIndex = String(100 - Math.round(Math.abs(delta) * 10));
+        const clamped = Math.max(-1, Math.min(1, delta));
+        const abs = Math.abs(clamped);
+        const shift = delta * 132;
+        const narrow = abs < 0.04 ? 1 : 1 - abs * 0.46;
+        card.style.transformOrigin = clamped >= 0 ? "0% 50%" : "100% 50%";
+        card.style.transform = "translateX(" + shift + "px) scale(" + narrow + ", " + (1 - abs * 0.04) + ")";
+        const img = document.createElement("img");
+        img.alt = album.title;
+        img.src = album.cover || "";
+        card.appendChild(img);
+        card.addEventListener("click", () => {
+          if (Math.abs(index - position) < 0.4) selectAlbum();
+          else { position = index; renderFlow(); }
+        });
+        flow.appendChild(card);
+      });
+    }
+
+    function showLibrary(animate) {
+      mode = "library";
+      playback.classList.add("off");
+      library.classList.remove("off");
+      vinyl.classList.remove("spin");
+      if (!animate) vinyl.classList.remove("out");
+      else {
+        vinyl.classList.remove("out");
+        sheen.classList.remove("out");
+      }
+      renderFlow();
+    }
+
+    function showPlayback() {
+      mode = "playback";
+      library.classList.add("off");
+      playback.classList.remove("off");
+      const revealed = true;
+      vinyl.classList.toggle("out", revealed);
+      sheen.classList.toggle("out", revealed);
+      paintTrack();
+    }
+
+    let usingFile = false;
+
+    function playingNow() {
+      if (usingFile) return !audio.paused;
+      return !!(fake && fake.playing);
+    }
+
+    function currentTime() {
+      if (usingFile) return audio.currentTime || 0;
+      if (!fake) return 0;
+      if (!fake.playing) return fake.offset;
+      return Math.min(fake.duration, fake.offset + (performance.now() - fake.origin) / 1000);
+    }
+
+    function currentDuration() {
+      if (usingFile && Number.isFinite(audio.duration)) return audio.duration;
+      return fake ? fake.duration : 0;
+    }
+
+    function paintTrack() {
+      const album = currentAlbum();
+      const track = album && album.tracks[trackIndex];
+      if (!track) return;
+      document.getElementById("songTitle").textContent = track.title;
+      document.getElementById("songArtist").textContent = track.artist.toUpperCase();
+      document.getElementById("sleeveArt").src = album.cover || "";
+      document.getElementById("labelArt").src = album.cover || "";
+      playCap.textContent = playingNow() ? "❚❚" : "▶";
+      vinyl.classList.toggle("spin", playingNow());
+      const duration = currentDuration();
+      const time = currentTime();
+      document.getElementById("elapsed").textContent = fmt(time);
+      document.getElementById("total").textContent = fmt(duration);
+      const fraction = duration > 0 ? Math.min(1, time / duration) : 0;
+      document.getElementById("scrubFill").style.width = (fraction * 100) + "%";
+    }
+
+    function stopFake() {
+      fake = null;
+    }
+
+    function startFake(duration, offset) {
+      audio.pause();
+      audio.removeAttribute("src");
+      usingFile = false;
+      fake = { duration: duration || 180, offset: offset || 0, origin: performance.now(), playing: true };
+    }
+
+    async function loadTrack(autoplay) {
+      const album = currentAlbum();
+      const track = album && album.tracks[trackIndex];
+      if (!track) return;
+      stopFake();
+      if (track.file) {
+        const url = URL.createObjectURL(track.file);
+        objectURLs.push(url);
+        usingFile = true;
+        audio.src = url;
+        if (autoplay) {
+          try { await audio.play(); } catch (error) { status.textContent = "Playback was blocked by the browser"; }
+        }
+      } else if (autoplay) {
+        startFake(track.duration, 0);
+      } else {
+        fake = { duration: track.duration || 180, offset: 0, origin: performance.now(), playing: false };
+      }
+      paintTrack();
+    }
+
+    function selectAlbum() {
+      const album = currentAlbum();
+      if (!album || !album.tracks.length) return;
+      trackIndex = 0;
+      showPlayback();
+      loadTrack(true);
+    }
+
+    function togglePlay() {
+      if (!currentAlbum()) return;
+      if (usingFile) {
+        if (audio.paused) audio.play();
+        else audio.pause();
+      } else if (fake) {
+        if (fake.playing) {
+          fake.offset = currentTime();
+          fake.playing = false;
+        } else {
+          fake.origin = performance.now();
+          fake.playing = true;
+        }
+      } else {
+        loadTrack(true);
+      }
+      paintTrack();
+    }
+
+    function stepTrack(direction) {
+      const album = currentAlbum();
+      if (!album) return;
+      if (mode === "library") {
+        position = Math.max(0, Math.min(albums.length - 1, Math.round(position) + direction));
+        renderFlow();
+        return;
+      }
+      trackIndex = Math.max(0, Math.min(album.tracks.length - 1, trackIndex + direction));
+      loadTrack(true);
+    }
+
+    function showVolume(amount) {
+      const hud = document.getElementById("volume");
+      document.getElementById("volumeFill").style.height = (amount * 100) + "%";
+      hud.classList.add("show");
+      clearTimeout(volumeTimer);
+      volumeTimer = setTimeout(() => hud.classList.remove("show"), 700);
+    }
+
+    function bindWheel(wheel) {
+      let cap = wheel.querySelector(".cap");
+      if (!cap) {
+        cap = document.createElement("button");
+        cap.className = "cap";
+        cap.addEventListener("click", () => selectAlbum());
+        wheel.appendChild(cap);
+      }
+      let dragging = false;
+      let last = 0;
+      let moved = 0;
+      function angle(event) {
+        const rect = wheel.getBoundingClientRect();
+        return Math.atan2(event.clientY - (rect.top + rect.height / 2), event.clientX - (rect.left + rect.width / 2));
+      }
+      wheel.addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".key") || event.target.closest(".cap")) return;
+        dragging = true;
+        moved = 0;
+        last = angle(event);
+        wheel.setPointerCapture(event.pointerId);
+        wheel.classList.add("dragging");
+      });
+      wheel.addEventListener("pointermove", (event) => {
+        if (!dragging) return;
+        let delta = angle(event) - last;
+        if (delta > Math.PI) delta -= Math.PI * 2;
+        if (delta < -Math.PI) delta += Math.PI * 2;
+        last = angle(event);
+        moved += Math.abs(delta);
+        if (mode === "library") {
+          position = Math.max(0, Math.min(Math.max(albums.length - 1, 0), position + delta / 1.15));
+          renderFlow();
+        } else {
+          const next = Math.max(0, Math.min(1, audio.volume + delta * 0.12));
+          audio.volume = next;
+          showVolume(next);
+        }
+      });
+      wheel.addEventListener("pointerup", () => {
+        if (!dragging) return;
+        dragging = false;
+        wheel.classList.remove("dragging");
+        if (mode === "library" && moved > 0.02) {
+          position = Math.max(0, Math.min(albums.length - 1, Math.round(position)));
+          renderFlow();
+        }
+      });
+    }
+
+    document.getElementById("wheelPlay").addEventListener("click", (event) => {
+      const act = event.target.dataset.act;
+      if (act === "library") showLibrary(true);
+      if (act === "prev") stepTrack(-1);
+      if (act === "next") stepTrack(1);
+      if (act === "center") togglePlay();
+    });
+
+    bindWheel(document.getElementById("wheelLib"));
+    bindWheel(document.getElementById("wheelPlay"));
+
+    document.getElementById("scrub").addEventListener("pointerdown", (event) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const duration = currentDuration();
+      const time = duration * fraction;
+      if (usingFile) audio.currentTime = time;
+      else if (fake) {
+        fake.offset = time;
+        fake.origin = performance.now();
+      }
+      paintTrack();
+    });
+
+    function openFolder() { folderInput.click(); }
+    document.getElementById("choose").addEventListener("click", openFolder);
+    folderLink.addEventListener("click", openFolder);
+    folderInput.addEventListener("change", () => {
+      if (folderInput.files && folderInput.files.length) importFiles(folderInput.files);
+    });
+
+    function findImage(bytes) {
+      for (let index = 0; index + 3 < bytes.length; index++) {
+        if (bytes[index] === 0xff && bytes[index + 1] === 0xd8 && bytes[index + 2] === 0xff) return index;
+        if (bytes[index] === 0x89 && bytes[index + 1] === 0x50 && bytes[index + 2] === 0x4e && bytes[index + 3] === 0x47) return index;
+      }
+      return -1;
+    }
+
+    function imageBlob(bytes, mime) {
+      if (!bytes || bytes.length < 8) return null;
+      const at = findImage(bytes);
+      if (at < 0) return null;
+      const source = bytes.subarray(at);
+      const type = source[0] === 0x89 ? "image/png" : (mime && String(mime).startsWith("image/") ? mime : "image/jpeg");
+      return new Blob([source], { type: type });
+    }
+
+    async function shrink(blob) {
+      try {
+        const bitmap = await createImageBitmap(blob);
+        const scale = Math.min(1, 480 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        if (bitmap.close) bitmap.close();
+        const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.84));
+        if (out) return URL.createObjectURL(out);
+      } catch (error) {
+        /* The browser can still draw the original bytes. */
+      }
+      return URL.createObjectURL(blob);
+    }
+
+    async function importFiles(fileList) {
+      const all = Array.from(fileList);
+      const audioFiles = all.filter((file) => audioExt.has(extOf(file.name)));
+      const images = all.filter((file) => imageExt.has(extOf(file.name)));
+      const byDir = new Map();
+      images.forEach((image) => {
+        const dir = dirOf(image);
+        const list = byDir.get(dir) || [];
+        list.push(image);
+        byDir.set(dir, list);
+      });
+      status.textContent = audioFiles.length ? "INDEXING" : "NO MUSIC IN THAT FOLDER";
+      const tracks = [];
+      for (let index = 0; index < audioFiles.length; index++) {
+        const file = audioFiles[index];
+        let meta = {};
+        try { meta = await readMeta(file); } catch (error) { meta = {}; }
+        let cover = "";
+        if (meta.picture) cover = await shrink(meta.picture);
+        if (!cover) {
+          const folderImage = folderImageFor(file, byDir);
+          if (folderImage) cover = await shrink(folderImage);
+        }
+        tracks.push({
+          title: meta.title || file.name.replace(/\.[^.]+$/, ""),
+          artist: meta.artist || "Unknown Artist",
+          albumArtist: meta.albumArtist || meta.artist || "Unknown Artist",
+          album: meta.album || parentName(file),
+          trackNumber: meta.track || 0,
+          cover: cover,
+          duration: 0,
+          file: file
+        });
+        if (index % 6 === 0) {
+          status.textContent = "INDEXING " + (index + 1) + "/" + audioFiles.length;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+      const groups = new Map();
+      tracks.forEach((track) => {
+        const key = track.albumArtist.toLowerCase() + "\u0001" + track.album.toLowerCase();
+        if (!groups.has(key)) {
+          groups.set(key, { id: key, title: track.album, artist: track.albumArtist, cover: "", tracks: [] });
+        }
+        const group = groups.get(key);
+        if (!group.cover && track.cover) group.cover = track.cover;
+        group.tracks.push(track);
+      });
+      albums = Array.from(groups.values()).sort((a, b) => a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title));
+      albums.forEach((album) => {
+        album.tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0) || a.title.localeCompare(b.title));
+        if (!album.cover) album.cover = demoCover(album.title, "#243044", "#8aa0b4");
+      });
+      position = 0;
+      status.textContent = "";
+      showLibrary(false);
+    }
+
+    function folderImageFor(file, byDir) {
+      const dir = dirOf(file);
+      const parent = dir.split("/").slice(0, -1).join("/");
+      return pickFolderImage(byDir.get(dir) || []) || pickFolderImage(byDir.get(parent) || []);
+    }
+
+    function pickFolderImage(images) {
+      if (!images.length) return null;
+      const named = images.filter((image) => {
+        const base = image.name.replace(/\.[^.]+$/, "").toLowerCase();
+        return preferredCover.some((want) => base === want || base.startsWith(want))
+          || base.includes("cover") || base.includes("folder") || base.includes("artwork") || base.includes("front");
+      });
+      const pool = named.length ? named : (images.length === 1 ? images : []);
+      return pool.slice().sort((a, b) => b.size - a.size)[0] || null;
+    }
+
+    async function readMeta(file) {
+      let size = Math.min(file.size, 1024 * 1024);
+      let parsed = {};
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const buffer = await file.slice(0, size).arrayBuffer();
+        parsed = parseHeader(buffer) || {};
+        if (parsed.picture) return parsed;
+        if (parsed.need && parsed.need > size && parsed.need <= file.size && parsed.need < 20 * 1024 * 1024) {
+          size = Math.min(file.size, parsed.need + 64);
+          continue;
+        }
+        break;
+      }
+      const kind = extOf(file.name);
+      if (!parsed.picture && file.size > size && (kind === "m4a" || kind === "mp4" || kind === "aac" || kind === "alac")) {
+        const tailStart = Math.max(0, file.size - 4 * 1024 * 1024);
+        const tail = new Uint8Array(await file.slice(tailStart).arrayBuffer());
+        const picture = imageBlob(tail);
+        if (picture) parsed.picture = picture;
+      }
+      return parsed;
+    }
+
+    function parseHeader(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length >= 4 && bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43) {
+        return parseFlac(buffer);
+      }
+      if (bytes.length >= 10 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+        return parseId3(buffer);
+      }
+      return parseMp4(buffer) || {};
+    }
+
+    function parseFlac(buffer) {
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      let pos = 4;
+      const meta = {};
+      while (pos + 4 <= bytes.length) {
+        const header = bytes[pos];
+        const last = header & 0x80;
+        const type = header & 0x7f;
+        const size = (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3];
+        const body = pos + 4;
+        if (body + size > bytes.length) return Object.assign(meta, { need: body + size });
+        if (type === 4) Object.assign(meta, parseVorbis(bytes, body, size));
+        if (type === 6) meta.picture = flacPicture(bytes, view, body, size);
+        pos = body + size;
+        if (last) break;
+      }
+      return meta;
+    }
+
+    function parseVorbis(bytes, body, size) {
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let pos = body;
+      const end = body + size;
+      if (pos + 4 > end) return {};
+      const vendor = view.getUint32(pos, true);
+      pos += 4 + vendor;
+      if (pos + 4 > end) return {};
+      const count = view.getUint32(pos, true);
+      pos += 4;
+      const meta = {};
+      for (let index = 0; index < count && pos + 4 <= end; index++) {
+        const length = view.getUint32(pos, true);
+        pos += 4;
+        if (pos + length > end) break;
+        const text = new TextDecoder("utf-8").decode(bytes.subarray(pos, pos + length));
+        pos += length;
+        const split = text.indexOf("=");
+        if (split < 0) continue;
+        const key = text.slice(0, split).toLowerCase();
+        const value = text.slice(split + 1).trim();
+        if (!value) continue;
+        if (key === "title" && !meta.title) meta.title = value;
+        if ((key === "artist" || key === "albumartist") && !meta.artist) meta.artist = value;
+        if (key === "albumartist") meta.albumArtist = value;
+        if (key === "album" && !meta.album) meta.album = value;
+        if ((key === "tracknumber" || key === "track") && !meta.track) meta.track = parseInt(value, 10) || 0;
+      }
+      return meta;
+    }
+
+    function flacPicture(bytes, view, body, size) {
+      const block = bytes.subarray(body, body + size);
+      try {
+        const mimeLen = view.getUint32(body + 4);
+        const mimeStart = body + 8;
+        if (mimeLen > 0 && mimeLen < 256 && mimeStart + mimeLen + 4 <= body + size) {
+          const descLen = view.getUint32(mimeStart + mimeLen);
+          const afterDesc = mimeStart + mimeLen + 4 + descLen;
+          if (descLen < 1024 * 1024 && afterDesc + 20 <= body + size) {
+            const dataLen = view.getUint32(afterDesc + 16);
+            const dataStart = afterDesc + 20;
+            if (dataLen > 32 && dataStart + dataLen <= body + size) {
+              const mime = new TextDecoder("iso-8859-1").decode(bytes.subarray(mimeStart, mimeStart + mimeLen));
+              const blob = imageBlob(bytes.subarray(dataStart, dataStart + dataLen), mime);
+              if (blob) return blob;
+            }
+          }
+        }
+      } catch (error) {
+        /* Fall through to a search for the JPEG or PNG inside the block. */
+      }
+      return imageBlob(block);
+    }
+
+    function synchsafe(bytes, offset) {
+      return (bytes[offset] << 21) | (bytes[offset + 1] << 14) | (bytes[offset + 2] << 7) | bytes[offset + 3];
+    }
+
+    function parseId3(buffer) {
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      const version = bytes[3];
+      const tagSize = synchsafe(bytes, 6);
+      if (buffer.byteLength < 10 + tagSize) return { need: 10 + tagSize };
+      let pos = 10;
+      const end = 10 + tagSize;
+      const meta = {};
+      if (version === 2) {
+        while (pos + 6 <= end) {
+          if (bytes[pos] === 0) break;
+          const id = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2]);
+          const frameSize = (bytes[pos + 3] << 16) | (bytes[pos + 4] << 8) | bytes[pos + 5];
+          const data = pos + 6;
+          if (frameSize <= 0 || data + frameSize > end) break;
+          if (id === "TT2") meta.title = meta.title || decodeId3(bytes, data, frameSize);
+          if (id === "TP1") meta.artist = meta.artist || decodeId3(bytes, data, frameSize);
+          if (id === "TP2") meta.albumArtist = decodeId3(bytes, data, frameSize);
+          if (id === "TAL") meta.album = meta.album || decodeId3(bytes, data, frameSize);
+          if (id === "TRK") meta.track = meta.track || parseInt(decodeId3(bytes, data, frameSize), 10) || 0;
+          if (id === "PIC" && !meta.picture) meta.picture = imageBlob(bytes.subarray(data, data + frameSize));
+          pos = data + frameSize;
+        }
+        return meta;
+      }
+      while (pos + 10 <= end) {
+        if (bytes[pos] === 0) break;
+        const id = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
+        const frameSize = version === 4 ? synchsafe(bytes, pos + 4) : view.getUint32(pos + 4);
+        const data = pos + 10;
+        if (frameSize <= 0 || data + frameSize > end) break;
+        if (id === "TIT2") meta.title = meta.title || decodeId3(bytes, data, frameSize);
+        if (id === "TPE1") meta.artist = meta.artist || decodeId3(bytes, data, frameSize);
+        if (id === "TPE2") meta.albumArtist = decodeId3(bytes, data, frameSize);
+        if (id === "TALB") meta.album = meta.album || decodeId3(bytes, data, frameSize);
+        if (id === "TRCK") meta.track = meta.track || parseInt(decodeId3(bytes, data, frameSize), 10) || 0;
+        if (id === "APIC" && !meta.picture) meta.picture = parseApic(bytes, data, frameSize) || imageBlob(bytes.subarray(data, data + frameSize));
+        pos = data + frameSize;
+      }
+      return meta;
+    }
+
+    function decodeId3(bytes, start, length) {
+      if (length <= 1) return "";
+      const encoding = bytes[start];
+      const data = bytes.subarray(start + 1, start + length);
+      try {
+        if (encoding === 0) return new TextDecoder("iso-8859-1").decode(data).replace(/\0+$/g, "").trim();
+        if (encoding === 3) return new TextDecoder("utf-8").decode(data).replace(/\0+$/g, "").trim();
+      } catch (error) {
+        return "";
+      }
+      let offset = 0;
+      let little = false;
+      if (encoding === 1 && data.length >= 2) {
+        if (data[0] === 0xff && data[1] === 0xfe) { little = true; offset = 2; }
+        else if (data[0] === 0xfe && data[1] === 0xff) { offset = 2; }
+      }
+      let text = "";
+      for (let index = offset; index + 1 < data.length; index += 2) {
+        const code = little ? data[index] | (data[index + 1] << 8) : (data[index] << 8) | data[index + 1];
+        if (code === 0) break;
+        text += String.fromCharCode(code);
+      }
+      return text.trim();
+    }
+
+    function parseApic(bytes, start, length) {
+      const end = start + length;
+      let pos = start;
+      if (pos >= end) return null;
+      const encoding = bytes[pos++];
+      let mimeEnd = pos;
+      while (mimeEnd < end && bytes[mimeEnd] !== 0) mimeEnd++;
+      const mime = new TextDecoder("iso-8859-1").decode(bytes.subarray(pos, mimeEnd));
+      pos = mimeEnd + 1;
+      pos += 1;
+      if (encoding === 1 || encoding === 2) {
+        if (pos + 1 < end && ((bytes[pos] === 0xff && bytes[pos + 1] === 0xfe) || (bytes[pos] === 0xfe && bytes[pos + 1] === 0xff))) pos += 2;
+        while (pos + 1 < end && !(bytes[pos] === 0 && bytes[pos + 1] === 0)) pos += 2;
+        pos += 2;
+      } else {
+        while (pos < end && bytes[pos] !== 0) pos++;
+        pos += 1;
+      }
+      if (pos >= end) return imageBlob(bytes.subarray(start, start + length));
+      return imageBlob(bytes.subarray(pos, end), mime) || imageBlob(bytes.subarray(start, start + length));
+    }
+
+    function parseMp4(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length < 12) return null;
+      const mark = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+      if (mark !== "ftyp") return null;
+      const found = findCovr(bytes, 0, bytes.length);
+      if (found && found.need) return found;
+      return found ? { picture: found } : {};
+    }
+
+    function findCovr(bytes, start, end) {
+      let pos = start;
+      while (pos + 8 <= end) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        let size = view.getUint32(pos);
+        const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+        let header = 8;
+        if (size === 1 && pos + 16 <= end) {
+          size = Number(view.getUint32(pos + 8)) * 4294967296 + view.getUint32(pos + 12);
+          header = 16;
+        }
+        if (size < header) return null;
+        if (pos + size > end) return { need: pos + size };
+        const body = pos + header;
+        const innerEnd = pos + size;
+        if (type === "covr") {
+          const blob = imageBlob(bytes.subarray(body, innerEnd));
+          if (blob) return blob;
+        } else if (["moov", "udta", "ilst", "trak", "mdia", "meta", "moof"].includes(type)) {
+          const skip = type === "meta" ? 4 : 0;
+          const nested = findCovr(bytes, body + skip, innerEnd);
+          if (nested) return nested;
+        }
+        pos += size;
+      }
+      return null;
+    }
+
+    audio.addEventListener("timeupdate", paintTrack);
+    audio.addEventListener("loadedmetadata", paintTrack);
+    audio.addEventListener("play", paintTrack);
+    audio.addEventListener("pause", paintTrack);
+    audio.addEventListener("ended", () => {
+      const album = currentAlbum();
+      if (album && trackIndex < album.tracks.length - 1) stepTrack(1);
+      else paintTrack();
+    });
+    setInterval(() => { if (mode === "playback") paintTrack(); }, 250);
+
+    loadDemo();
+  </script>
+</body>
+</html>
